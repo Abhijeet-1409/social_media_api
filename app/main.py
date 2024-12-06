@@ -1,8 +1,7 @@
 import os 
-
 from typing import Annotated
 from dotenv import load_dotenv
-from .models import Post,PostUpdate
+from .models import BasePost,PostDatabase,PostUpdate
 from pymongo.collection import Collection
 from contextlib import asynccontextmanager
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -65,10 +64,11 @@ async def get_posts() -> JSONResponse :
 
 @app.post("/posts")
 @http_error_handler
-async def create_post(post: Annotated[Post, Body()]) -> JSONResponse :
+async def create_post(post: Annotated[BasePost, Body()]) -> JSONResponse :
    
     posts: Collection = app.state.db.posts
-    post_dict = post.model_dump()
+    post_database = PostDatabase(**post.model_dump())
+    post_dict = post_database.model_dump()
     result_obj = await posts.insert_one(post_dict)
 
     post_doc_obj = await posts.find_one({"_id": result_obj.inserted_id})
