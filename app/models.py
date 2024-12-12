@@ -15,4 +15,3 @@ class PostDatabase(BasePost) :
 class PostUpdate(BasePost) : 
     title : str | None = Field(default=None,title="Title",min_length=1)
     content : str | None = Field(default=None,title="Content",min_length=10)
-    published : bool | None = Field(default=None,title="Published")

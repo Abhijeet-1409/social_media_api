@@ -11,6 +11,16 @@ def convert_to_post_json(post_doc_obj,exclude_id=False) :
         del post_json["_id"]
     return post_json
 
+def preprocess_mongo_doc(doc):
+    if isinstance(doc, dict):
+        return {k: preprocess_mongo_doc(v) for k, v in doc.items()}
+    elif isinstance(doc, list):
+        return [preprocess_mongo_doc(item) for item in doc]
+    elif isinstance(doc, ObjectId):
+        return str(doc)
+    return doc
+
+
 
 def convert_str_object_id(id) :
     if not ObjectId.is_valid(id):
@@ -27,14 +37,9 @@ def http_error_handler(func) :
         try:
             result = await func(*args, **kwargs)
         except HTTPException as http_exc:
-            return JSONResponse(
-                status_code=http_exc.status_code,
-                content={"message": http_exc.detail}
-            )
+            raise
         except Exception as exc:
-            return JSONResponse(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                content={"message": f"An unexpected error occurred: {str(exc)}"}
-            )
+            print(exc)
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Internal Server Error")
         return result
     return wrapper
