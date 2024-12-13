@@ -1,23 +1,24 @@
-
 from typing import Annotated
-from fastapi import APIRouter, Request
+from ..dependencies import get_token_data
+from fastapi import APIRouter, Depends, Request
 from pymongo.collection import Collection
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse , Response
 from fastapi import status , Body , HTTPException, Path
-from ..models import BasePost , PostDatabase , PostUpdate
+from ..models import BasePost , PostDatabase , PostUpdate, TokenData
 from ..utils import http_error_handler , preprocess_mongo_doc , convert_str_object_id
 
 
 router = APIRouter(
     prefix="/posts",
     tags=["Posts"],
+    dependencies=[Depends(get_token_data)]
 )
 
 
-@router.get("/posts")
+@router.get("")
 @http_error_handler
-async def get_posts(request:Request) -> JSONResponse :
+async def get_posts(request: Request) -> JSONResponse : 
     
     posts : Collection = request.app.state.db.posts 
     cursor = posts.find()
@@ -27,17 +28,20 @@ async def get_posts(request:Request) -> JSONResponse :
     
     return JSONResponse(
         status_code=status.HTTP_200_OK,
-        content={"posts" : post_jsons }
+        content={"posts" : post_jsons}
     )
 
 
 
-@router.post("/posts")
+@router.post("")
 @http_error_handler
-async def create_post(request:Request,post: Annotated[BasePost, Body()]) -> JSONResponse :
+async def create_post(request:Request,post: Annotated[BasePost, Body()],token_data: Annotated[TokenData,Depends(get_token_data)]) -> JSONResponse :
    
+    post_dict: dict = jsonable_encoder(post)
+    post_dict.update({"user_id":token_data.user_id})
+    post_database = PostDatabase(**post_dict)
+    
     posts: Collection = request.app.state.db.posts
-    post_database = PostDatabase(**post.model_dump())
     post_database_json = jsonable_encoder(post_database)
     result_obj = await posts.insert_one(post_database_json)
 
@@ -54,7 +58,7 @@ async def create_post(request:Request,post: Annotated[BasePost, Body()]) -> JSON
 
 
 
-@router.get("/posts/{id}")
+@router.get("/{id}")
 @http_error_handler
 async def get_post(request:Request,id:Annotated[str,Path()]) -> JSONResponse :
     
@@ -77,9 +81,9 @@ async def get_post(request:Request,id:Annotated[str,Path()]) -> JSONResponse :
  
 
 
-@router.put("/posts/{id}")
+@router.put("/{id}")
 @http_error_handler
-async def update_post(request:Request,id:Annotated[str,Path()],post_update:Annotated[PostUpdate,Body()]) -> JSONResponse :
+async def update_post(request:Request,id:Annotated[str,Path()],post_update:Annotated[PostUpdate,Body()],token_data: Annotated[TokenData,Depends(get_token_data)]) -> JSONResponse :
    
     posts: Collection = request.app.state.db.posts
     object_id = convert_str_object_id(id)
@@ -89,6 +93,12 @@ async def update_post(request:Request,id:Annotated[str,Path()],post_update:Annot
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Post not found."
+        )
+
+    if post_doc_obj["user_id"] != token_data.user_id :
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to update this post."
         )
 
     update_fields = jsonable_encoder(post_update,exclude_unset=True)
@@ -109,18 +119,26 @@ async def update_post(request:Request,id:Annotated[str,Path()],post_update:Annot
 
 
 
-@router.delete("/posts/{id}")
+@router.delete("/{id}")
 @http_error_handler
-async def delete_post(request:Request,id:Annotated[str,Path()]) -> Response :
+async def delete_post(request:Request,id:Annotated[str,Path()],token_data: Annotated[TokenData,Depends(get_token_data)]) -> Response :
 
     posts: Collection = request.app.state.db.posts
     object_id = convert_str_object_id(id)  
-    delete_result = await posts.delete_one({"_id": object_id})
+    post_doc_obj = await posts.find_one({"_id": object_id})
 
-    if delete_result.deleted_count == 0:
+    if not post_doc_obj:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Post not found."
+        )
+
+    delete_result = await posts.delete_one({"_id": object_id,"user_id":token_data.user_id})
+
+    if delete_result.deleted_count == 0:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to delete this post."
         )
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)

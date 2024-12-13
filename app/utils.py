@@ -1,7 +1,7 @@
 from functools import wraps
 from bson import ObjectId
 from fastapi import HTTPException , status
-from fastapi.responses import JSONResponse
+
 
 def convert_to_post_json(post_doc_obj,exclude_id=False) :
     post_json = { key:value for key,value in post_doc_obj.items()}

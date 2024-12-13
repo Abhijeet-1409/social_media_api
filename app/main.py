@@ -1,44 +1,41 @@
-import os 
-from .routers import posts
-from fastapi import FastAPI
-from dotenv import load_dotenv
+import uvicorn
+from .config import settings
+from asyncio import CancelledError
+from .routers import posts , users , auth
 from contextlib import asynccontextmanager
 from motor.motor_asyncio import AsyncIOMotorClient
-from .utils import convert_str_object_id,http_error_handler , preprocess_mongo_doc
-
-env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),".env")
+from fastapi import FastAPI , HTTPException, status 
 
 
-load_dotenv(dotenv_path=env_path)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
 
-MONGO_USER = os.getenv("MONGO_USER")
-MONGO_PASSWORD = os.getenv("MONGO_PASSWORD")
-MONGO_CLUSTER = os.getenv("MONGO_CLUSTER")
-MONGO_DB_NAME = os.getenv("MONGO_DB_NAME")  
-MONGO_OPTIONS = os.getenv("MONGO_OPTIONS")
-
-
-MONGO_URI = f"mongodb+srv://{MONGO_USER}:{MONGO_PASSWORD}@{MONGO_CLUSTER}/{MONGO_DB_NAME}?{MONGO_OPTIONS}"
-
-
-@asynccontextmanager 
-async def lifespan(app:FastAPI) :
     print("Loading resources")
-    try :
-        app.state.client = AsyncIOMotorClient(MONGO_URI)
+    try:
+        app.state.client = AsyncIOMotorClient(settings.mongo_uri)
         app.state.db = app.state.client.get_database()
+        await app.state.db.users.create_index([("username", 1)], unique=True)
         yield
-    except Exception as error :
-        print(f"Error : {error}")
-    finally :
-        print("Releasing resources")
-        if hasattr(app.state,"client") :
+    except CancelledError as cancel_error:
+        print("Shutdown signal received, cleaning up.")
+    except Exception as error:
+        print(f"Error initializing resources: {error}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Server is down. Unable to initialize resources."
+        )
+    finally:
+        print("Releasing resources")      
+        if hasattr(app.state, "client"):
             app.state.client.close()
-
 
 
 app = FastAPI(lifespan=lifespan)
 
+app.include_router(auth.router)
+app.include_router(users.router)
 app.include_router(posts.router)
 
 
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)

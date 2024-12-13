@@ -1,17 +1,44 @@
-from pydantic import BaseModel , Field
 from datetime import datetime , timezone
+from pydantic import BaseModel , Field , EmailStr
 
 class BasePost(BaseModel) :
     title : str = Field(...,title="Title",min_length=1)
-    content : str = Field(...,title="Content",min_length=10)
+    content : str = Field(...,title="Content",min_length=10,max_length=500)
     published : bool = Field(default=True,title="Published")
     model_config = {"extra": "forbid"}
 
-
 class PostDatabase(BasePost) : 
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), title="Created_at")
-
+    user_id : str = Field(...,title="User_id")
+    created_at : datetime = Field(default_factory=lambda: datetime.now(timezone.utc), title="Created_at")
 
 class PostUpdate(BasePost) : 
     title : str | None = Field(default=None,title="Title",min_length=1)
     content : str | None = Field(default=None,title="Content",min_length=10)
+
+
+class BaseUser(BaseModel) :
+    username : str = Field(...,title="Username",min_length=1)
+    email : EmailStr = Field(...,title="Email")
+    full_name : str = Field(...,title="Full_name",min_length=3)
+    disabled : bool = Field(default=False,title="Account_disabled")
+    model_config = {"extra": "forbid"}
+
+class UserIn(BaseUser) :
+    password : str = Field(...,title="Password",min_length=8,max_length=128)
+
+class UserDatabase(BaseUser) :
+    hashed_password : str = Field(...,title="Hashed_password")
+    created_at : datetime = Field(default_factory=lambda: datetime.now(timezone.utc), title="Created_at")
+    model_config = {"extra":"ignore"}
+
+
+class UserOut(UserDatabase) :
+    id : str = Field(...,title="User_id")
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    username: str | None = None
+    user_id: str | None = None
