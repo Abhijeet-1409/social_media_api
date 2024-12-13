@@ -1,10 +1,9 @@
-from ..models import Token 
 from typing import Annotated
-from ..models import UserOut
-from ..config import settings
 from datetime import timedelta
+from app.config import settings
+from app.models import UserOut , Token
 from fastapi.security import OAuth2PasswordRequestForm
-from ..dependencies import authenticate_user, create_access_token
+from app.dependencies import authenticate_user, create_access_token
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 router = APIRouter(tags=["Authenticaiton"])

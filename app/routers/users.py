@@ -1,11 +1,11 @@
 from typing import Annotated
-from ..utils import http_error_handler
+from app.utils import http_error_handler
 from pymongo.collection import Collection
 from fastapi.responses import JSONResponse
 from pymongo.errors import DuplicateKeyError
 from fastapi.encoders import jsonable_encoder
-from ..models import UserOut, UserIn,UserDatabase
-from ..dependencies import get_current_active_user, get_password_hash
+from app.models import UserOut, UserIn,UserDatabase
+from app.dependencies import get_current_active_user, get_password_hash
 from fastapi import APIRouter, Body, Depends, Request, HTTPException,status
 
 router = APIRouter(

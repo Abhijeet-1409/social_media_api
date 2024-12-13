@@ -1,11 +1,11 @@
 import jwt
-from .config import settings
+from app.config import settings
 from jwt import InvalidTokenError
 from typing import Annotated, Any
-from .models import TokenData, UserOut
-from .utils import preprocess_mongo_doc
 from passlib.context import CryptContext
+from app.models import TokenData, UserOut
 from pymongo.collection import Collection
+from app.utils import preprocess_mongo_doc
 from fastapi.encoders import jsonable_encoder
 from fastapi.security import OAuth2PasswordBearer
 from datetime import datetime, timedelta, timezone

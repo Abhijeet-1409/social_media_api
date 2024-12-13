@@ -1,12 +1,12 @@
 from typing import Annotated
-from ..dependencies import get_token_data
-from fastapi import APIRouter, Depends, Request
 from pymongo.collection import Collection
+from app.dependencies import get_token_data
 from fastapi.encoders import jsonable_encoder
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse , Response
 from fastapi import status , Body , HTTPException, Path
-from ..models import BasePost , PostDatabase , PostUpdate, TokenData
-from ..utils import http_error_handler , preprocess_mongo_doc , convert_str_object_id
+from app.models import BasePost , PostDatabase , PostUpdate, TokenData
+from app.utils import http_error_handler , preprocess_mongo_doc , convert_str_object_id
 
 
 router = APIRouter(

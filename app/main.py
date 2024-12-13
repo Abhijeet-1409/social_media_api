@@ -1,8 +1,8 @@
 import uvicorn
-from .config import settings
+from app.config import settings
 from asyncio import CancelledError
-from .routers import posts , users , auth
 from contextlib import asynccontextmanager
+from app.routers import posts , users , auth
 from motor.motor_asyncio import AsyncIOMotorClient
 from fastapi import FastAPI , HTTPException, status 
 
