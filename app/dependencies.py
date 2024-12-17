@@ -1,15 +1,16 @@
 import jwt
+from bson import ObjectId
 from app.config import settings
 from jwt import InvalidTokenError
 from typing import Annotated, Any
 from passlib.context import CryptContext
 from app.models import TokenData, UserOut
 from pymongo.collection import Collection
-from app.utils import preprocess_mongo_doc
 from fastapi.encoders import jsonable_encoder
 from fastapi.security import OAuth2PasswordBearer
 from datetime import datetime, timedelta, timezone
 from fastapi import Depends, HTTPException, Request, status
+from app.utils import preprocess_mongo_doc , convert_str_object_id
 
 settings.secret_key
 settings.algorithm 
@@ -77,10 +78,12 @@ async def get_token_data(request: Request,token: Annotated[str,Depends(oauth2_sc
     try :
         payload: dict = jwt.decode(token,settings.secret_key,algorithms=[settings.algorithm])
         username: str = payload.get("sub")
-        user_id: str = payload.get("user_id")
+        user_id: ObjectId | str = payload.get("user_id")
 
-        if user_id is None or username is None:
+        if username is None or user_id is None or not ObjectId.is_valid(user_id) :
             raise credentials_exception
+        
+        user_id = convert_str_object_id(user_id)
     
     except InvalidTokenError :
         raise credentials_exception

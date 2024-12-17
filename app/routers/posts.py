@@ -42,7 +42,7 @@ async def create_post(request:Request,post: Annotated[BasePost, Body()],token_da
     post_database = PostDatabase(**post_dict)
     
     posts: Collection = request.app.state.db.posts
-    post_database_json = jsonable_encoder(post_database)
+    post_database_json = post_database.model_dump()
     result_obj = await posts.insert_one(post_database_json)
 
     post_doc_obj = await posts.find_one({"_id": result_obj.inserted_id})

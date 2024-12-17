@@ -1,3 +1,4 @@
+from bson import ObjectId
 from datetime import datetime , timezone
 from pydantic import BaseModel , Field , EmailStr
 
@@ -8,8 +9,9 @@ class BasePost(BaseModel) :
     model_config = {"extra": "forbid"}
 
 class PostDatabase(BasePost) : 
-    user_id : str = Field(...,title="User_id")
+    user_id : ObjectId = Field(...,title="User_id")
     created_at : datetime = Field(default_factory=lambda: datetime.now(timezone.utc), title="Created_at")
+    model_config = {"arbitrary_types_allowed":True}
 
 class PostUpdate(BasePost) : 
     title : str | None = Field(default=None,title="Title",min_length=1)
@@ -41,4 +43,5 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     username: str | None = None
-    user_id: str | None = None
+    user_id: ObjectId | None = None
+    model_config = {"arbitrary_types_allowed":True}
