@@ -77,18 +77,22 @@ async def get_token_data(request: Request,token: Annotated[str,Depends(oauth2_sc
 
     try :
         payload: dict = jwt.decode(token,settings.secret_key,algorithms=[settings.algorithm])
+        exp: datetime |int = payload.get("exp")
         username: str = payload.get("sub")
         user_id: ObjectId | str = payload.get("user_id")
 
-        if username is None or user_id is None or not ObjectId.is_valid(user_id) :
+        if username is None or user_id is None or exp is None or not ObjectId.is_valid(user_id) :
             raise credentials_exception
         
         user_id = convert_str_object_id(user_id)
-    
+        exp = datetime.fromtimestamp(exp,tz=timezone.utc)
+
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has expired")
     except InvalidTokenError :
         raise credentials_exception
     
-    return TokenData(username=username,user_id=user_id)
+    return TokenData(username=username,user_id=user_id,exp=exp)
 
 async def get_current_user(request: Request,token_data: Annotated[TokenData,Depends(get_token_data)]) -> UserOut :
     

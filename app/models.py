@@ -42,6 +42,8 @@ class Token(BaseModel):
     token_type: str
 
 class TokenData(BaseModel):
+    exp: datetime | None = None
     username: str | None = None
     user_id: ObjectId | None = None
     model_config = {"arbitrary_types_allowed":True}
+    
