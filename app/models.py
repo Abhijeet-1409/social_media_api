@@ -1,3 +1,4 @@
+from enum import Enum
 from bson import ObjectId
 from datetime import datetime , timezone
 from pydantic import BaseModel , Field , EmailStr
@@ -46,4 +47,44 @@ class TokenData(BaseModel):
     username: str | None = None
     user_id: ObjectId | None = None
     model_config = {"arbitrary_types_allowed":True}
-    
+
+
+class EmojiEnum(str, Enum):
+    GRINNING = "😀"
+    GRINNING_WITH_SMILE = "😁"
+    SMILEY = "😊"
+    LAUGHING = "😆"
+    WINK = "😉"
+    SAD = "😢"
+    ANGRY = "😠"
+    CRYING = "😭"
+    KISSING = "😘"
+    SURPRISED = "😮"
+    CONFUSED = "😕"
+    THINKING = "🤔"
+    SLEEPING = "😴"
+    SILLY = "😜"
+    COOL = "😎"
+    NERDY = "🤓"
+    WORRIED = "😟"
+    TIRED = "😫"
+    YAWNING = "🥱"
+    SWEAT = "😅"
+    ANXIOUS = "😰"
+    SHOCKED = "😱"
+    RELIEVED = "😌"
+    PARTY = "🥳"
+    HUSHED = "🤫"
+    SICK = "🤢"
+    VOMITING = "🤮"
+    DIZZY = "😵"
+    HUNGRY = "🤤"
+    HEART_EYES = "😍"
+
+class ReactionInput(BaseModel):
+    post_id: ObjectId
+    emoji: EmojiEnum
+    model_config={"extra":"forbid","arbitrary_types_allowed":True}
+
+class Reaction(ReactionInput):
+    user_id: ObjectId
