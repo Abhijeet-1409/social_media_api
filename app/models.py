@@ -87,4 +87,16 @@ class ReactionInput(BaseModel):
     model_config={"extra":"forbid","arbitrary_types_allowed":True}
 
 class Reaction(ReactionInput):
+    reactor_username: str
+    reactor_id : ObjectId    
+
+class ReactionNotification(Reaction):
+    post_title :str
+    sent:bool = False
+    recipient_user_id : ObjectId
+
+class ActiveUserNotification(BaseModel) :
     user_id: ObjectId
+    fcm_token: str 
+    is_active: bool = True
+    model_config={"extra":"forbid","arbitrary_types_allowed":True}
