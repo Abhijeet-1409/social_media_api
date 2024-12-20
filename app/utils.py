@@ -1,9 +1,14 @@
-from functools import wraps
+import httpx
+from typing import Any
 from bson import ObjectId
+from functools import wraps
+from app.config import settings
+from app.logger import custom_logger
 from fastapi import HTTPException , status
 
 
-def convert_to_post_json(post_doc_obj,exclude_id=False) :
+
+def convert_to_post_json(post_doc_obj: dict[Any,Any],exclude_id: bool = False) :
     post_json = { key:value for key,value in post_doc_obj.items()}
     post_json["_id"] = str(post_json["_id"])
     post_json["created_at"] = str(post_json["created_at"])
@@ -11,7 +16,7 @@ def convert_to_post_json(post_doc_obj,exclude_id=False) :
         del post_json["_id"]
     return post_json
 
-def preprocess_mongo_doc(doc):
+def preprocess_mongo_doc(doc:dict[Any,Any]):
     if isinstance(doc, dict):
         return {k: preprocess_mongo_doc(v) for k, v in doc.items()}
     elif isinstance(doc, list):
@@ -22,7 +27,7 @@ def preprocess_mongo_doc(doc):
 
 
 
-def convert_str_object_id(id) :
+def convert_str_object_id(id:Any) :
     if not ObjectId.is_valid(id):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -43,3 +48,50 @@ def http_error_handler(func) :
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Internal Server Error")
         return result
     return wrapper
+
+
+async def send_single_push_notification(reaction_notification_dic: dict[Any,Any],fcm_token: str) :
+    
+    url = settings.fcm_url
+    SERVER_KEY = settings.fcm_server_key
+
+    headers = {
+        "Authorization": f"key={SERVER_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    title = "User reaction"
+    body = f"{reaction_notification_dic['reactor_username']} react {reaction_notification_dic['emoji']} to your post {reaction_notification_dic['post_title']} "
+
+    payload = {
+        "to": fcm_token,  
+        "notification": {
+            "title": title,
+            "body": body,
+            "sound": "default"
+        },
+        "priority": "high", 
+    }
+
+    async with httpx.AsyncClient() as client:
+        try:
+            response: httpx.Response = await client.post(url=url, headers=headers, json=payload)
+            if 200 <= response.status_code < 300:
+                custom_logger.info(f"FCM request succeeded with status code {response.status_code}: {response.text}")
+        except httpx.HTTPStatusError as http_error:
+            custom_logger.error(f"FCM request failed with status code {http_error.response.status_code}: {http_error}")
+        except httpx.RequestError as request_error:
+            custom_logger.error(f"FCM request failed: {request_error}")
+        except httpx.TimeoutException as timeout_error:
+            custom_logger.error(f"FCM request timed out: {timeout_error}")
+        except Exception as e:
+            custom_logger.error(f"Unexpected error occurred while sending FCM request: {e}")
+
+async def send_multiple_push_notification(reaction_notification_doc_list: list[dict[Any,Any]],fcm_token: str):
+    
+    for reaction_notification_doc in reaction_notification_doc_list :
+        
+        await send_single_push_notification(
+                    fcm_token=fcm_token,
+                    reaction_notification_dic=reaction_notification_doc
+                )

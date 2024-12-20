@@ -5,12 +5,14 @@ from pydantic_settings import BaseSettings
 env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),".env")
 
 class Settings(BaseSettings) :
+    fcm_url: str
     algorithm: str
     secret_key: str
     mongo_user: str
     mongo_db_name: str
     mongo_options: str
     mongo_cluster: str
+    fcm_server_key: str
     mongo_password: str
     access_token_expire_minutes: int
     
