@@ -53,11 +53,11 @@ def http_error_handler(func) :
 async def send_single_push_notification(reaction_notification_dic: dict[Any,Any],fcm_token: str) :
     
     url = settings.fcm_url
-    SERVER_KEY = settings.fcm_server_key
+    fcm_access_token = settings.fcm_access_token
 
     headers = {
-        "Authorization": f"key={SERVER_KEY}",
-        "Content-Type": "application/json"
+        'Authorization': 'Bearer ' + fcm_access_token,
+        'Content-Type': 'application/json; UTF-8',
     }
 
     title = "User reaction"
@@ -79,13 +79,13 @@ async def send_single_push_notification(reaction_notification_dic: dict[Any,Any]
             if 200 <= response.status_code < 300:
                 custom_logger.info(f"FCM request succeeded with status code {response.status_code}: {response.text}")
         except httpx.HTTPStatusError as http_error:
-            custom_logger.error(f"FCM request failed with status code {http_error.response.status_code}: {http_error}")
+            custom_logger.exception(f"FCM request failed with status code {http_error.response.status_code}: {http_error}",stack_info=True)
         except httpx.RequestError as request_error:
-            custom_logger.error(f"FCM request failed: {request_error}")
+            custom_logger.error(f"FCM request failed: {request_error}",stack_info=True)
         except httpx.TimeoutException as timeout_error:
-            custom_logger.error(f"FCM request timed out: {timeout_error}")
+            custom_logger.error(f"FCM request timed out: {timeout_error}",stack_info=True)
         except Exception as e:
-            custom_logger.error(f"Unexpected error occurred while sending FCM request: {e}")
+            custom_logger.error(f"Unexpected error occurred while sending FCM request: {e}",stack_info=True)
 
 async def send_multiple_push_notification(reaction_notification_doc_list: list[dict[Any,Any]],fcm_token: str):
     
@@ -95,3 +95,4 @@ async def send_multiple_push_notification(reaction_notification_doc_list: list[d
                     fcm_token=fcm_token,
                     reaction_notification_dic=reaction_notification_doc
                 )
+        

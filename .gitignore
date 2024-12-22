@@ -6,3 +6,6 @@ venv
 
 # environment variable
 .env
+
+# .json
+*.json
