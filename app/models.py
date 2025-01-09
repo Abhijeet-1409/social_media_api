@@ -76,6 +76,7 @@ class UserOut(UserDatabase) :
 class Token(BaseModel):
     access_token: str = Field(...,title="Access_token")
     token_type: str = Field(...,title="Bearer")
+    expire_time: str = Field(...,title="Expire_time")
 
 class TokenData(BaseModel):
     exp: datetime | None = Field(default=None,title="Exp")
@@ -93,6 +94,7 @@ class Reaction(ReactionInput):
     post_id: ObjectId = Field(...,title="Post_id")
     reactor_username: str = Field(...,title="Reactor_username")
     reactor_id : ObjectId = Field(...,title="Reactor_id")
+    reaction_timestamp : datetime = Field(default_factory=lambda: datetime.now(timezone.utc), title="Created_at")
 
 class ReactionNotificaiton(Reaction):
     post_title: str = Field(...,title="Post_title")  
@@ -101,7 +103,9 @@ class ReactionNotificaiton(Reaction):
     model_config={"extra":"ignore"}
 
 class ActiveUserNotification(BaseModel) :
+    username: str = Field(...,title="Username")
     user_id: ObjectId = Field(...,title="User_id")
+    client_id:str = Field(...,title="Client_id")
     fcm_token: str = Field(...,title="Fcm_token")
     is_active: bool = Field(default=True,title="Is_active")
     expire_time: datetime = Field(...,title="Expire_time")

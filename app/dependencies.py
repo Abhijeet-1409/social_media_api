@@ -54,7 +54,7 @@ async def authenticate_user(request: Request,username: str,password: str) -> Any
     return user
 
 
-def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str :
+def create_access_token(data: dict, expires_delta: timedelta | None = None) -> dict[str,Any] :
     to_encode = data.copy()
     
     if expires_delta:
@@ -65,7 +65,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
     to_encode.update({"exp":expire})
     encoded_jwt = jwt.encode(to_encode,settings.secret_key,algorithm=settings.algorithm)
     
-    return encoded_jwt
+    return {'access_token':encoded_jwt,'expire_time':str(expire)}
 
 
 async def get_token_data(request: Request,token: Annotated[str,Depends(oauth2_scheme)]) -> TokenData :

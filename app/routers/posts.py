@@ -1,5 +1,6 @@
-from datetime import datetime
+from datetime import datetime , timezone
 from typing import Annotated
+from app.config import custom_logger
 from pymongo.collection import Collection
 from app.dependencies import get_token_data
 from fastapi.encoders import jsonable_encoder
@@ -8,7 +9,7 @@ from fastapi.responses import JSONResponse , Response
 from pymongo.results import InsertOneResult,DeleteResult,UpdateResult
 from fastapi import status , Body , HTTPException, Path, BackgroundTasks
 from app.models import BasePost , PostDatabase , PostUpdate, TokenData, ReactionInput, Reaction, ReactionNotificaiton
-from app.utils import http_error_handler , preprocess_mongo_doc , convert_str_object_id, send_single_push_notification
+from app.utils import http_error_handler , preprocess_mongo_doc , convert_str_object_id, send_single_push_notification , update_multiple_reaction_notification_doc
 
 
 router = APIRouter(
@@ -30,7 +31,7 @@ async def handle_reaction(
 
     posts: Collection = request.app.state.db.posts
     reactions: Collection = request.app.state.db.reactions
-    reaction_notificaion: Collection = request.app.state.db.reaction_notifications
+    reaction_notificaions: Collection = request.app.state.db.reaction_notifications
     active_user_notifications: Collection = request.app.state.db.active_user_notifications
     object_id = convert_str_object_id(id)  
     post_doc_obj = await posts.find_one({"_id": object_id})
@@ -60,32 +61,45 @@ async def handle_reaction(
                 detail="Failed to store reacion."
             )
 
-    reaction_obj_doc.update({"recipient_user_id":post_doc_obj['user_id']})
+    reaction_obj_doc.update({"recipient_user_id":post_doc_obj['user_id'],"post_title":post_doc_obj['title']})
     reaction_notificaion_obj: ReactionNotificaiton = ReactionNotificaiton(**reaction_obj_doc)
     reaction_notificaion_obj_doc = reaction_notificaion_obj.model_dump()
-    utc_now = datetime.now(datetime.timezone.utc)
-
-    active_user_doc = await active_user_notifications.find_one({
-                            'user_id':post_doc_obj['user_id'],
-                            'expire_time':{"$gt":utc_now},
-                            'is_active':True
-                        })
-    
-    if active_user_doc :
-        reaction_notificaion_obj_doc['sent'] = True
-        background_tasks.add_task(
-            send_single_push_notification,
-            reaction_notification_dic=reaction_notificaion_obj_doc,
-            fcm_token=active_user_doc['fcm_token']
-            )
-
-    reaction_notificaion_result_obj: InsertOneResult = await reaction_notificaion.insert_one(reaction_notificaion_obj_doc)
+    reaction_notificaion_result_obj: InsertOneResult = await reaction_notificaions.insert_one(reaction_notificaion_obj_doc)
 
     if reaction_notificaion_result_obj.inserted_id is None :
         raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to store reaction notification in the database."
             )
+
+    utc_now = datetime.now(timezone.utc)
+
+    cursor =  active_user_notifications.find({
+                            'user_id':post_doc_obj['user_id'],
+                            'expire_time':{"$gt":utc_now},
+                            'is_active':True
+                        })
+
+    active_user_notifications_docs_list = await cursor.to_list()
+    
+    if len(active_user_notifications_docs_list) >= 1  :
+        reaction_notificaion_doc = await reaction_notificaions.find_one({"_id":reaction_notificaion_result_obj.inserted_id})
+        background_tasks.add_task(
+            update_multiple_reaction_notification_doc,
+            reaction_notifications=reaction_notificaions,
+            reaction_notification_doc_list=[reaction_notificaion_doc]
+            )
+        for active_user_doc in active_user_notifications_docs_list :
+            background_tasks.add_task(
+                send_single_push_notification,
+                reaction_notification_dic=reaction_notificaion_doc,
+                fcm_token=active_user_doc['fcm_token'],
+                client_id=active_user_doc['client_id'],
+                )
+    else :
+        custom_logger.info("No active user")
+
+    
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

@@ -1,22 +1,23 @@
 from datetime import datetime
 from typing import Annotated
 from pymongo.collection import Collection
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 from pymongo.errors import DuplicateKeyError
 from fastapi.encoders import jsonable_encoder
-from fastapi.responses import JSONResponse , Response
-from pymongo.results import InsertOneResult, UpdateResult
-from app.utils import http_error_handler, send_multiple_push_notification
+from fastapi.responses import JSONResponse 
+from pymongo.results import InsertOneResult, UpdateResult 
 from app.models import TokenData, UserOut, UserIn,UserDatabase , ActiveUserNotification
 from app.dependencies import get_current_active_user, get_password_hash, get_token_data
 from fastapi import APIRouter, Body, Depends, Request, HTTPException,status , BackgroundTasks
+from app.utils import http_error_handler, send_multiple_push_notification, update_multiple_reaction_notification_doc , validate_fcm_token
 
 router = APIRouter(
     prefix="/users",
     tags=["Users"],
 )
 
-
-
+templates = Jinja2Templates(directory="app/templates")
 
 @router.post("/notifications/register")
 @http_error_handler
@@ -24,26 +25,33 @@ async def register_active_user(
     request: Request,
     background_tasks: BackgroundTasks,
     token_data: Annotated[TokenData, Depends(get_token_data)],
-    fcm_token: Annotated[str, Body(..., regex=r'^[A-Za-z0-9_-]{1526,1600}$')]
+    client_id: Annotated[str,Body(...,regex=r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$')],
+    fcm_token: Annotated[str, Body(...,min_length=10)]
 ) -> JSONResponse:
+    firebase_app = request.app.state.firebase_app
     active_user_notifications: Collection = request.app.state.db.active_user_notifications
     reaction_notifications: Collection = request.app.state.db.reaction_notifications
 
     # Check for existing active token
     existing_user_doc = await active_user_notifications.find_one(
-        {"user_id": token_data.user_id, "fcm_token": fcm_token, "is_active": True}
+        {"user_id": token_data.user_id, "fcm_token": fcm_token, "is_active": True,"client_id": client_id,}
     )
+    
     if existing_user_doc:
         return JSONResponse(
             status_code=status.HTTP_200_OK,
             content={"message": "FCM token is already registered."},
         )
 
+    await validate_fcm_token (fcm_token=fcm_token,firebase_app=firebase_app)
+
     # Create new active user document
     active_user: ActiveUserNotification = ActiveUserNotification(
         fcm_token=fcm_token,
+        client_id=client_id,
         user_id=token_data.user_id,
-        expire_time=token_data.exp
+        expire_time=token_data.exp,
+        username=token_data.username
     )
     active_user_dict: dict = active_user.model_dump()
 
@@ -62,7 +70,13 @@ async def register_active_user(
         background_tasks.add_task(
             send_multiple_push_notification,
             reaction_notification_doc_list=reaction_notification_doc_list,
-            fcm_token=fcm_token
+            fcm_token=fcm_token,
+            client_id=client_id
+        )
+        background_tasks.add_task(
+            update_multiple_reaction_notification_doc,
+            reaction_notifications=reaction_notifications,
+            reaction_notification_doc_list=reaction_notification_doc_list
         )
 
     return JSONResponse(
@@ -78,7 +92,8 @@ async def register_active_user(
 async def deregister_active_user(
     request: Request,
     token_data: Annotated[TokenData, Depends(get_token_data)],
-    fcm_token: Annotated[str, Body(..., regex=r'^[A-Za-z0-9_-]{1526,1600}$')]
+    client_id: Annotated[str,Body(...,regex=r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$')],
+    fcm_token: Annotated[str, Body(...,min_length=10)]
 ) -> JSONResponse:
     update_payload = {"$set": {"is_active": False}}
     active_user_notifications: Collection = request.app.state.db.active_user_notifications
@@ -87,7 +102,8 @@ async def deregister_active_user(
         {
             "user_id": token_data.user_id,
             "fcm_token": fcm_token,
-            "is_active": True
+            "is_active": True,
+            "client_id": client_id,
         },
         update_payload
     )
@@ -103,6 +119,10 @@ async def deregister_active_user(
         content={"message": "FCM token deregistered successfully."},
     )
 
+
+@router.get("/notification",response_class=HTMLResponse)
+async def notification(request: Request) :
+    return templates.TemplateResponse(request=request,name="user_notification.html",context={})
 
 
 @router.get("/me",response_model=UserOut)

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="{{ url_for('static', path='/css/styles.css') }}" rel="stylesheet">
+    <title>FastAPI Notifications</title>
+</head>
+
+<body>
+
+    <header>
+        <button id="login-button">Login</button>
+        <button id="logout-button" style="display: none;"></button>
+    </header>
+
+    <!-- Login dialog -->
+    <dialog id="login-dialog">
+        <form method="dialog" id="login-form">
+            <h3>Login</h3>
+            <label for="username">Username:</label>
+            <input type="text" id="username" name="username" autocomplete="username" required>
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" autocomplete="current-password" required>
+            <div class="dialog-buttons">
+                <button type="submit">Login</button>
+                <button type="button" id="cancel-login-button">Cancel</button>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- Logout confirmation dialog -->
+    <dialog id="logout-dialog">
+        <h3>Are you sure you want to log out?</h3>
+        <div class="dialog-buttons">
+            <button type="button" id="confirm-logout">Yes, Log Out</button>
+            <button type="button" id="cancel-logout-button">Cancel</button>
+        </div>
+    </dialog>
+
+    <template id="notification-template">
+        <div class="notification">
+            <p></p>
+        </div>
+    </template>
+
+    <div id="notificaiton-div">
+        <h1>Notifications</h1>
+        <button id="notificaion-icon-button" style="display:none;">🔔</button>
+    </div>
+    <div id="list"></div>
+
+    <!-- Include the JavaScript file -->
+    <script src="{{ url_for('static', path='js/main.js') }}" type="module"></script>
+
+</body>
+
+</html>
